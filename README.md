@@ -69,6 +69,14 @@ It analyzes visual artifacts introduced during image synthesis and classifies im
 
 ## ⚙️ Installation
 
+> **⚠️ Prerequisites:**
+> - **Python Version:** This project strictly requires **Python 3.11**.
+(Newer versions like Python 3.12 are currently incompatible with the required TensorFlow dependencies).
+
+> - **Windows Users:** 
+>   - You must have the [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) installed to run TensorFlow.
+>   - If the app crashes on launch with a DLL error, install `tensorflow-cpu` instead of standard `tensorflow`.
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/daksh-ugi/PixelTruth.git
