@@ -5,6 +5,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import img_to_array
+from metrics import (
+    get_sample_metrics,
+    get_confusion_matrix_plot,
+    get_roc_curve_plot,
+    get_dataset_distribution_plot,
+    get_class_statistics,
+)
 
 st.set_page_config(
     page_title="PixelTruth",
@@ -210,6 +217,107 @@ with col_perf2:
         st.image("Figure_1.png", use_column_width=True)
     else:
         st.info("Figure_1.png not found.")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# ----------------------- MODEL ANALYTICS ------------------
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+st.subheader("📊 Model Analytics")
+
+# Fetch metrics
+metrics = get_sample_metrics()
+class_stats = get_class_statistics()
+
+# -------- METRIC CARDS ROW --------
+col_acc, col_prec, col_rec, col_f1 = st.columns(4)
+
+with col_acc:
+    st.metric(
+        label="Accuracy",
+        value=f"{metrics['accuracy']:.1f}%",
+        delta="",
+        help="Overall correctness of the model"
+    )
+
+with col_prec:
+    st.metric(
+        label="Precision",
+        value=f"{metrics['precision']:.1f}%",
+        delta="",
+        help="Accuracy of positive predictions"
+    )
+
+with col_rec:
+    st.metric(
+        label="Recall",
+        value=f"{metrics['recall']:.1f}%",
+        delta="",
+        help="Coverage of actual positives"
+    )
+
+with col_f1:
+    st.metric(
+        label="F1-Score",
+        value=f"{metrics['f1_score']:.1f}%",
+        delta="",
+        help="Harmonic mean of precision & recall"
+    )
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# -------- VISUALIZATIONS ROW --------
+col_cm, col_roc = st.columns(2)
+
+with col_cm:
+    st.markdown("**Confusion Matrix**")
+    cm_fig = get_confusion_matrix_plot()
+    st.pyplot(cm_fig, use_container_width=True)
+
+with col_roc:
+    st.markdown("**ROC Curve**")
+    roc_fig = get_roc_curve_plot()
+    st.pyplot(roc_fig, use_container_width=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# -------- CLASS DISTRIBUTION & STATS --------
+col_dist, col_stats = st.columns(2)
+
+with col_dist:
+    st.markdown("**Class Distribution**")
+    dist_fig = get_dataset_distribution_plot()
+    st.pyplot(dist_fig, use_container_width=True)
+
+with col_stats:
+    st.markdown("**Per-Class Statistics**")
+    
+    for class_label, stats in class_stats.items():
+        st.markdown(f"**{class_label}**")
+        col_s1, col_s2, col_s3 = st.columns(3)
+        
+        with col_s1:
+            st.metric(
+                label="Total",
+                value=f"{stats['total_samples']:,}",
+                help="Total samples in this class"
+            )
+        
+        with col_s2:
+            st.metric(
+                label="Correct",
+                value=f"{stats['correctly_classified']:,}",
+                help="Correctly classified samples"
+            )
+        
+        with col_s3:
+            st.metric(
+                label="Accuracy",
+                value=f"{stats['class_accuracy']:.1f}%",
+                help=f"Class-specific accuracy"
+            )
+        
+        st.markdown("---")
 
 st.markdown("</div>", unsafe_allow_html=True)
 
