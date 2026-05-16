@@ -152,16 +152,31 @@ with col_left:
     )
     st.markdown("</div>", unsafe_allow_html=True)
 
+    MAX_FILE_SIZE_MB = 10
+    MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
     if uploaded_file is not None:
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        if uploaded_file.size > MAX_FILE_SIZE_BYTES:
+            st.error(
+                f"⚠️ File too large: **{uploaded_file.size / (1024 * 1024):.1f} MB**. "
+                f"Please upload an image under {MAX_FILE_SIZE_MB} MB. "
+                "Large RAW or TIFF files can crash the app — try a compressed JPG or PNG instead."
+            )
+            image = None
+        else:
+            try:
+                raw_bytes = uploaded_file.read()
+                file_bytes = np.asarray(bytearray(raw_bytes), dtype=np.uint8)
+                image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            except Exception as e:
+                st.error(f"⚠️ Could not read the file: {e}. Please upload a valid JPG, PNG, or WebP image.")
+                image = None
+
         if image is not None:
             st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
             st.subheader("🔍 Preview")
             st.image(image, channels="BGR", caption="Uploaded Image", use_column_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.error("Could not read the uploaded image. Please try another file.")
 
 with col_right:
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
@@ -171,6 +186,8 @@ with col_right:
         st.write("Upload an image on the left to run deepfake detection.")
     elif model is None:
         st.error("Model could not be loaded. Detection is unavailable.")
+    elif image is None:
+        st.warning("The image could not be processed. Please fix the error on the left and try again.")
     else:
         with st.spinner("Analyzing image with the deepfake model..."):
             label, confidence = predict_image(image)
@@ -338,4 +355,3 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
