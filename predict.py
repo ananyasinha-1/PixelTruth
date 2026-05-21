@@ -2,11 +2,11 @@ import argparse
 import json
 import os
 import sys
-import logging
 
 import numpy as np
-
 from preprocessing import preprocess_image_bytes
+import logging
+
 from exceptions import (
     PreprocessingError,
     ModelExecutionError,
@@ -16,7 +16,7 @@ from utils.model_loader import load_cached_model
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
 )
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,27 @@ SUPPORTED_EXTENSIONS = {
 
 
 def preprocess_image(image_path: str) -> np.ndarray:
-    """Read and preprocess an image."""
+    """Read and preprocess an image for the model via shared byte-based pipeline.
+
+    Parameters
+    ----------
+    image_path:
+        Filesystem path to the image file.
+
+    Returns
+    -------
+    np.ndarray
+        Shape ``(1, 96, 96, 3)``, values in ``[0, 1]``.
+
+    Raises
+    ------
+    FileNotFoundError
+        When *image_path* does not exist on disk.
+    ValueError
+        When the file extension is not supported.
+    PreprocessingError
+        When the file exists but cannot be decoded or preprocessed.
+    """
 
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"Image not found: {image_path}")
@@ -73,8 +93,40 @@ def preprocess_image(image_path: str) -> np.ndarray:
 # Prediction
 # ---------------------------------------------------------------------------
 
-def predict_image(image_path: str) -> dict:
-    """Run deepfake detection on a single image."""
+def predict_image(
+    image_path: str,
+    model_path: str | None = None
+) -> dict:
+    """Run deepfake detection on a single image.
+
+    Parameters
+    ----------
+    image_path:
+        Path to the image to classify.
+
+    model_path:
+        Optional override for the model file location.
+
+    Returns
+    -------
+    dict
+        ``{"image": str, "label": "Real"|"Fake", "confidence": float,
+           "raw": list[float]}``
+
+    Raises
+    ------
+    FileNotFoundError
+        When *image_path* does not exist on disk.
+
+    ValueError
+        When the file extension is not supported.
+
+    PreprocessingError
+        When the image cannot be decoded or preprocessed.
+
+    ModelExecutionError
+        When model inference fails.
+    """
 
     image = preprocess_image(image_path)
 
@@ -88,7 +140,7 @@ def predict_image(image_path: str) -> dict:
     except (
         PreprocessingError,
         FileNotFoundError,
-        ValueError,
+        ValueError
     ):
         raise
 
@@ -107,6 +159,9 @@ def predict_image(image_path: str) -> dict:
 
     confidence = float(np.max(prediction)) * 100
 
+    # Dataset mapping:
+    # class 0 = Real
+    # class 1 = Fake
     label = "Fake" if class_index == 1 else "Real"
 
     return {
@@ -130,6 +185,16 @@ def build_parser() -> argparse.ArgumentParser:
             "Classifies one or more images as Real or Fake."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  python predict.py photo.jpg\n"
+            "  python predict.py img1.jpg img2.png --json\n"
+            "  python predict.py --model /weights/model.h5 photo.jpg\n\n"
+            "Environment variables:\n"
+            "  PIXELTRUTH_MODEL_PATH   path to model file\n"
+            "  PIXELTRUTH_MODEL_URL    URL to download model if missing\n"
+            "  PIXELTRUTH_MODEL_SHA256 expected SHA-256 of the model file"
+        ),
     )
 
     parser.add_argument(
@@ -140,22 +205,34 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--model",
+        metavar="PATH",
+        default=None,
+        help=(
+            "path to the .h5 model file "
+            "(default: $PIXELTRUTH_MODEL_PATH or "
+            "'deepfake_detection_model.h5')"
+        ),
+    )
+
+    parser.add_argument(
         "--json",
         dest="output_json",
         action="store_true",
-        help="print results as JSON",
+        help="print results as JSON (useful for scripting)",
     )
 
     parser.add_argument(
         "--quiet",
         action="store_true",
-        help="suppress informational messages",
+        help="suppress informational messages; only print results",
     )
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Entry point. Returns 0 on success, 1 if any image fails."""
 
     parser = build_parser()
 
@@ -169,7 +246,10 @@ def main(argv: list[str] | None = None) -> int:
 
         try:
 
-            result = predict_image(image_path)
+            result = predict_image(
+                image_path,
+                model_path=args.model
+            )
 
             results.append(result)
 
@@ -177,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
             FileNotFoundError,
             ValueError,
             PreprocessingError,
-            ModelExecutionError,
+            ModelExecutionError
         ) as exc:
 
             error_result = {
