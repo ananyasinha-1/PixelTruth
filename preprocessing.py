@@ -10,6 +10,8 @@ from PIL import Image, ImageOps
 
 from config import IMAGE_SIZE
 
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp", ".tiff"}
+
 MIN_IMAGE_DIM = 10
 
 # --- Decompression bomb protection (issue #47) ---
@@ -97,7 +99,16 @@ def preprocess_image_from_path(image_path: str | Path) -> np.ndarray:
     path = Path(image_path)
     if not path.exists():
         raise FileNotFoundError(f"No file found at: {path}")
+fix/issue-114-streamlit-launch
 
+    
+    if path.suffix.lower() not in ALLOWED_EXTENSIONS:
+        raise ValueError(
+            f"Unsupported file type '{path.suffix}'. "
+            f"Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+    
+main
     image = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError(f"Could not decode image at '{path}'.")
