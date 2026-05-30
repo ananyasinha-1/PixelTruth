@@ -55,3 +55,64 @@ def test_api_rejects_oversized_upload_before_prediction(monkeypatch):
     )
 
     assert response.status_code == 413
+
+
+def test_async_detect_returns_task_id(monkeypatch):
+    monkeypatch.setattr(
+        api_main,
+        "predict_image",
+        lambda _bytes: {"label": "Real", "confidence": 0.95, "raw": [0.95]},
+    )
+    client = TestClient(api_main.app)
+
+    response = client.post(
+        "/api/detect/async", files={"file": ("sample.png", b"data", "image/png")}
+    )
+
+    assert response.status_code == 202
+    assert "task_id" in response.json()
+    assert isinstance(response.json()["task_id"], str)
+
+
+def test_task_status_returns_completed(monkeypatch):
+    monkeypatch.setattr(
+        api_main,
+        "predict_image",
+        lambda _bytes: {"label": "Fake", "confidence": 0.15, "raw": [0.15]},
+    )
+    client = TestClient(api_main.app)
+
+    submit_response = client.post(
+        "/api/detect/async", files={"file": ("sample.png", b"data", "image/png")}
+    )
+    task_id = submit_response.json()["task_id"]
+
+    status_response = client.get(f"/api/task/{task_id}")
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "completed"
+    assert status_response.json()["verdict"] == "Fake"
+    assert status_response.json()["confidence"] == 0.15
+    assert status_response.json()["raw_scores"] == [0.15]
+
+
+def test_task_not_found_returns_404():
+    client = TestClient(api_main.app)
+
+    response = client.get("/api/task/nonexistent")
+
+    assert response.status_code == 404
+
+
+def test_async_detect_rejects_non_image(monkeypatch):
+    monkeypatch.setattr(
+        api_main,
+        "predict_image",
+        lambda _bytes: pytest.fail("prediction should not run for invalid async uploads"),
+    )
+    client = TestClient(api_main.app)
+
+    response = client.post(
+        "/api/detect/async", files={"file": ("sample.txt", b"data", "text/plain")}
+    )
+
+    assert response.status_code == 400
