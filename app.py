@@ -943,7 +943,7 @@ else:
                     st.metric(
                         label="Correct Predictions",
                         value=f"{stats['correctly_classified']:,}"
-
+                    )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
